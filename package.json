@@ -1,6 +1,6 @@
 {
   "name": "arfa-runtime",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "Arman Tarhani",
   "description": "Rendering engine for Arfa framework (jsx, renderer, router)",
   "type": "module",
