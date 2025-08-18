@@ -1,38 +1,36 @@
 {
   "name": "arfa-runtime",
-  "version": "0.1.3",
+  "version": "0.1.1",
   "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     },
     "./jsx": {
+      "types": "./dist/jsx.d.ts",
       "import": "./dist/jsx.js",
-      "require": "./dist/jsx.cjs",
-      "types": "./dist/jsx.d.ts"
+      "default": "./dist/jsx.js"
     },
     "./renderer": {
+      "types": "./dist/renderer.d.ts",
       "import": "./dist/renderer.js",
-      "require": "./dist/renderer.cjs",
-      "types": "./dist/renderer.d.ts"
+      "default": "./dist/renderer.js"
     },
     "./router": {
+      "types": "./dist/router.d.ts",
       "import": "./dist/router.js",
-      "require": "./dist/router.cjs",
-      "types": "./dist/router.d.ts"
+      "default": "./dist/router.js"
     }
   },
-  "sideEffects": false,
+  "types": "./dist/index.d.ts",
   "files": [
     "dist"
   ],
+  "sideEffects": false,
   "scripts": {
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.cjs.json",
+    "build": "tsc -p tsconfig.json",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
