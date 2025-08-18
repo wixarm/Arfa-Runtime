@@ -1,7 +1,3 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.initRouter = initRouter;
-exports.navigateTo = navigateTo;
 let routes = [];
 let layoutsByDir = {};
 let layoutGuardsByDir = {};
@@ -151,7 +147,7 @@ function getLayoutsForPath(pathname) {
             matched.push(layoutsByDir[d]);
     return matched;
 }
-function initRouter(routeModules, renderFn) {
+export function initRouter(routeModules, renderFn) {
     buildRoutesAndLayouts(routeModules);
     void navigateTo(location.href, renderFn, false);
     window.addEventListener("popstate", () => void navigateTo(location.href, renderFn, false));
@@ -212,7 +208,7 @@ async function renderWrappedNotFound(renderFn) {
     const Wrapper = buildWrappedComponent(PageComp, "/404", {});
     renderFn(Wrapper);
 }
-async function navigateTo(pathOrHref, renderFn, push = true) {
+export async function navigateTo(pathOrHref, renderFn, push = true) {
     const url = new URL(pathOrHref, location.origin);
     const pathname = url.pathname;
     const { record, params } = matchRoute(pathname);

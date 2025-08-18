@@ -1,22 +1,18 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupAll = cleanupAll;
-exports.render = render;
-const arfa_reactives_1 = require("arfa-reactives");
+import { createComponentInstance, setCurrentInstance, clearCurrentInstance, runMounted, cleanupComponentInstance, registerInstanceRerender, triggerEffectsForAllInstances, } from "arfa-reactives";
 const trackedInstances = [];
 function findTracked(id) {
     return trackedInstances.find((t) => t.id === id);
 }
-function cleanupAll() {
+export function cleanupAll() {
     for (let i = trackedInstances.length - 1; i >= 0; i--) {
         try {
-            (0, arfa_reactives_1.cleanupComponentInstance)(trackedInstances[i].id);
+            cleanupComponentInstance(trackedInstances[i].id);
         }
         catch { }
     }
     trackedInstances.length = 0;
 }
-function render(vnode, container) {
+export function render(vnode, container) {
     const dom = createDomElement(vnode);
     container.appendChild(dom);
     if (dom.__instanceId) {
@@ -33,7 +29,7 @@ function render(vnode, container) {
                 props,
             });
             try {
-                (0, arfa_reactives_1.runMounted)(id);
+                runMounted(id);
             }
             catch (e) {
                 console.error("Error running mounted hooks:", e);
@@ -63,24 +59,24 @@ function createDomElement(vnode) {
                 const tracked = findTracked(id);
                 if (tracked) {
                     tracked.props = vnode.props ?? {};
-                    (0, arfa_reactives_1.setCurrentInstance)(id);
+                    setCurrentInstance(id);
                     const newVNode = tracked.componentFn(tracked.props || {});
-                    (0, arfa_reactives_1.clearCurrentInstance)();
+                    clearCurrentInstance();
                     return createDomElement(newVNode);
                 }
             }
-            const instanceId = (0, arfa_reactives_1.createComponentInstance)();
+            const instanceId = createComponentInstance();
             const rerender = () => {
                 const tracked = findTracked(instanceId);
                 if (!tracked)
                     return;
                 try {
-                    (0, arfa_reactives_1.setCurrentInstance)(instanceId);
+                    setCurrentInstance(instanceId);
                     const newVNode = tracked.componentFn({
                         ...(tracked.props || {}),
                         __instanceId: instanceId,
                     });
-                    (0, arfa_reactives_1.clearCurrentInstance)();
+                    clearCurrentInstance();
                     const newDom = createDomElement(newVNode);
                     // preserve instance metadata on the new root node
                     newDom.__instanceId = instanceId;
@@ -91,7 +87,7 @@ function createDomElement(vnode) {
                     tracked.rootNode = newDom;
                     requestAnimationFrame(() => {
                         try {
-                            (0, arfa_reactives_1.triggerEffectsForAllInstances)();
+                            triggerEffectsForAllInstances();
                         }
                         catch (e) {
                             console.error(e);
@@ -102,11 +98,11 @@ function createDomElement(vnode) {
                     console.error("instance rerender error", err);
                 }
                 finally {
-                    (0, arfa_reactives_1.clearCurrentInstance)();
+                    clearCurrentInstance();
                 }
             };
-            (0, arfa_reactives_1.registerInstanceRerender)(instanceId, rerender);
-            (0, arfa_reactives_1.setCurrentInstance)(instanceId);
+            registerInstanceRerender(instanceId, rerender);
+            setCurrentInstance(instanceId);
             let componentResult;
             try {
                 componentResult = vnode.type({
@@ -115,7 +111,7 @@ function createDomElement(vnode) {
                 });
             }
             finally {
-                (0, arfa_reactives_1.clearCurrentInstance)();
+                clearCurrentInstance();
             }
             const dom = createDomElement(componentResult);
             dom.__instanceId = instanceId;
@@ -164,7 +160,7 @@ function renderChildren(children, parent) {
                         props,
                     });
                     try {
-                        (0, arfa_reactives_1.runMounted)(id);
+                        runMounted(id);
                     }
                     catch { }
                 }
@@ -188,7 +184,7 @@ function renderChildren(children, parent) {
                     props,
                 });
                 try {
-                    (0, arfa_reactives_1.runMounted)(id);
+                    runMounted(id);
                 }
                 catch { }
             }
