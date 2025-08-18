@@ -1,21 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "jsx": "react",
-    "jsxFactory": "h",
-    "jsxFragmentFactory": "Fragment",
+    "target": "ES2020",
+    "module": "ESNext",
+    "declaration": true,
     "outDir": "dist",
     "rootDir": "src",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true,
     "strict": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "types": ["node"]
+    "moduleResolution": "Node",
+    "skipLibCheck": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src"]
 }
