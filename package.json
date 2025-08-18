@@ -1,0 +1,37 @@
+{
+  "name": "arfa-runtime",
+  "version": "0.1.0",
+  "author": "Arman tarhani",
+  "description": "Rendering engine for Arfa framework (jsx, renderer, router)",
+  "type": "module",
+  "main": "dist/runtime/index.js",
+  "module": "dist/runtime/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/runtime/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "arfa",
+    "runtime",
+    "jsx",
+    "renderer",
+    "router"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "arfa-reactives": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
