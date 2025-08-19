@@ -16,6 +16,8 @@ It provides the core building blocks that Arfa apps need at runtime:
 - **Renderer** for mounting and updating components
 - **Router** with file-based routing, layouts, guards, and 404 handling
 
+see the documentation of [Arfa JS](https://wixarm.github.io/Arfa/)
+
 ---
 
 ## Installation
