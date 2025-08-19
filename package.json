@@ -4,6 +4,10 @@
   "type": "module",
   "author": "Arman tarhani",
   "homepage": "https://wixarm.github.io/Arfa-Runtime/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wixarm/Arfa-Runtime"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
