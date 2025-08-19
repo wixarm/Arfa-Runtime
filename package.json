@@ -2,6 +2,8 @@
   "name": "arfa-runtime",
   "version": "0.1.6",
   "type": "module",
+  "author": "Arman tarhani",
+  "homepage": "https://wixarm.github.io/Arfa-Runtime/",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
