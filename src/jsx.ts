@@ -46,12 +46,6 @@ export function h(
   return vnode;
 }
 
-export function Fragment(props: { children?: any; key?: string | number }) {
-  const children = Array.isArray(props.children)
-    ? props.children
-    : [props.children];
-
-  return children.filter(
-    (child) => child != null && child !== false && child !== true
-  );
+export function Fragment(props: { children?: any }) {
+  return props.children;
 }
