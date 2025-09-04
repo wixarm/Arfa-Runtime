@@ -7,6 +7,5 @@ interface VNode {
 export declare function h(type: string | Function, props: Record<string, any> | null, ...children: any[]): VNode;
 export declare function Fragment(props: {
     children?: any;
-    key?: string | number;
-}): any[];
+}): any;
 export {};

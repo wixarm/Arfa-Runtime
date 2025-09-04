@@ -24,8 +24,5 @@ export function h(type, props, ...children) {
     return vnode;
 }
 export function Fragment(props) {
-    const children = Array.isArray(props.children)
-        ? props.children
-        : [props.children];
-    return children.filter((child) => child != null && child !== false && child !== true);
+    return props.children;
 }
