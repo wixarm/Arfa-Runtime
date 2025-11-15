@@ -151,6 +151,7 @@ export function initRouter(routeModules, renderFn) {
     buildRoutesAndLayouts(routeModules);
     void navigateTo(location.href, renderFn, false);
     window.addEventListener("popstate", () => void navigateTo(location.href, renderFn, false));
+    window.addEventListener("hashchange", () => void navigateTo(location.href, renderFn, false));
     document.addEventListener("click", (e) => {
         const target = e.target;
         const el = target && target.closest ? target.closest("a") : null;
@@ -164,6 +165,15 @@ export function initRouter(routeModules, renderFn) {
             void navigateTo(href, renderFn);
         }
     });
+}
+export function getCurrentPath() {
+    return location.pathname;
+}
+export function getCurrentQuery() {
+    return parseQueryParams(location.search);
+}
+export function getCurrentHash() {
+    return location.hash.slice(1);
 }
 async function runLayoutGuardsForPath(pathname, params) {
     const dirs = getLayoutDirsForPath(pathname);
@@ -185,50 +195,65 @@ async function runLayoutGuardsForPath(pathname, params) {
     }
     return { ok: true };
 }
-function buildWrappedComponent(PageComp, pathname, params) {
-    let inner = () => PageComp({ params });
+function parseQueryParams(search) {
+    const params = {};
+    if (!search || !search.startsWith("?"))
+        return params;
+    const queryString = search.slice(1);
+    for (const pair of queryString.split("&")) {
+        const [key, value] = pair.split("=").map(decodeURIComponent);
+        if (key) {
+            params[key] = value || "";
+        }
+    }
+    return params;
+}
+function buildWrappedComponent(PageComp, pathname, params, query = {}, hash = "") {
+    let inner = () => PageComp({ params, query, hash });
     const layouts = getLayoutsForPath(pathname);
     for (let i = layouts.length - 1; i >= 0; i--) {
         const Layout = layouts[i];
         const Prev = inner;
         inner = (() => {
-            return () => Layout({ children: Prev(), params });
+            return () => Layout({ children: Prev(), params, query, hash });
         })();
     }
     if (appWrapper) {
         const Prev = inner;
         inner = (() => {
-            return () => appWrapper({ Component: () => Prev(), pageProps: { params } });
+            return () => appWrapper({ Component: () => Prev(), pageProps: { params, query, hash } });
         })();
     }
     return inner;
 }
-async function renderWrappedNotFound(renderFn) {
+async function renderWrappedNotFound(renderFn, query = {}, hash = "") {
     const PageComp = notFoundPage ?? NotFound;
-    const Wrapper = buildWrappedComponent(PageComp, "/404", {});
+    const Wrapper = buildWrappedComponent(PageComp, "/404", {}, query, hash);
     renderFn(Wrapper);
 }
 export async function navigateTo(pathOrHref, renderFn, push = true) {
     const url = new URL(pathOrHref, location.origin);
     const pathname = url.pathname;
+    const query = parseQueryParams(url.search);
+    const hash = url.hash.slice(1);
     const { record, params } = matchRoute(pathname);
     if (push)
         history.pushState({}, "", pathname + url.search + url.hash);
     if (!record) {
-        await renderWrappedNotFound(renderFn);
+        await renderWrappedNotFound(renderFn, query, hash);
         return;
     }
-    const guardResult = await runLayoutGuardsForPath(pathname, params);
+    const guardResult = await runLayoutGuardsForPath(pathname, { ...params, query, hash });
     if (!guardResult.ok) {
         const target = guardResult.redirect ?? "/";
         if (target === pathname) {
-            await renderWrappedNotFound(renderFn);
+            await renderWrappedNotFound(renderFn, query, hash);
             return;
         }
         await navigateTo(target, renderFn);
         return;
     }
     const Page = record.component;
-    const Wrapper = buildWrappedComponent(Page, pathname, params);
+    const Wrapper = buildWrappedComponent(Page, pathname, params, query, hash);
     renderFn(Wrapper);
 }

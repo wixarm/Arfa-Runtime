@@ -3,6 +3,10 @@ export interface VNode {
     props: Record<string, any> & {
         children?: any;
     };
+    key?: string | number | null;
+    ref?: ((el: HTMLElement | null) => void) | {
+        current: HTMLElement | null;
+    };
 }
 type Child = VNode | string | number | boolean | null | Child[];
 export declare function cleanupAll(): void;
