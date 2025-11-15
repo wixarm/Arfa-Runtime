@@ -11,6 +11,8 @@ import {
 export interface VNode {
   type: string | Function;
   props: Record<string, any> & { children?: any };
+  key?: string | number | null;
+  ref?: ((el: HTMLElement | null) => void) | { current: HTMLElement | null };
 }
 
 type Child = VNode | string | number | boolean | null | Child[];
@@ -113,16 +115,7 @@ function createDomElement(vnode: Child): Node {
           });
           clearCurrentInstance();
 
-          const newDom = createDomElement(newVNode);
-
-          // preserve instance metadata on the new root node
-          (newDom as any).__instanceId = instanceId;
-          (newDom as any).__componentFn = tracked.componentFn;
-          (newDom as any).__props = tracked.props ?? {};
-
-          // replace old root node with the new one
-          tracked.parent.replaceChild(newDom, tracked.rootNode);
-          tracked.rootNode = newDom;
+          patchElement(tracked.rootNode, newVNode, tracked.parent);
 
           requestAnimationFrame(() => {
             try {
@@ -155,13 +148,14 @@ function createDomElement(vnode: Child): Node {
       (dom as any).__instanceId = instanceId;
       (dom as any).__componentFn = vnode.type;
       (dom as any).__props = vnode.props ?? {};
+      (dom as any).__vnode = vnode;
 
       return dom;
     }
 
     const domElement = document.createElement(vnode.type as string);
 
-    const { children, ...props } = vnode.props ?? {};
+    const { children, ref, ...props } = vnode.props ?? {};
     if (props && typeof props === "object") {
       Object.keys(props).forEach((name) => {
         const value = props[name];
@@ -169,18 +163,244 @@ function createDomElement(vnode: Child): Node {
           const event = name.slice(2).toLowerCase();
           domElement.addEventListener(event, value);
         } else if (name === "class" || name === "className") {
-          domElement.setAttribute("class", value);
-        } else {
-          domElement.setAttribute(name, value);
+          if (value != null) {
+            domElement.setAttribute("class", String(value));
+          }
+        } else if (name === "style" && typeof value === "object") {
+          Object.assign(domElement.style, value);
+        } else if (
+          name === "dangerouslySetInnerHTML" &&
+          value &&
+          value.__html
+        ) {
+          domElement.innerHTML = value.__html;
+        } else if (value != null && value !== false) {
+          domElement.setAttribute(name, String(value));
         }
       });
     }
 
+    if (ref) {
+      if (typeof ref === "function") {
+        ref(domElement as HTMLElement);
+      } else if (ref && typeof ref === "object" && "current" in ref) {
+        (ref as any).current = domElement as HTMLElement;
+      }
+    }
+
     renderChildren(children, domElement);
+    (domElement as any).__vnode = vnode;
     return domElement;
   }
 
   return document.createTextNode("");
+}
+
+function patchElement(oldNode: Node, newVNode: Child, parent: Node) {
+  if (oldNode.nodeType === Node.TEXT_NODE) {
+    if (typeof newVNode === "string" || typeof newVNode === "number") {
+      if (oldNode.textContent !== String(newVNode)) {
+        oldNode.textContent = String(newVNode);
+      }
+      return;
+    }
+    const newNode = createDomElement(newVNode);
+    parent.replaceChild(newNode, oldNode);
+    trackNewInstances(newNode, parent);
+    return;
+  }
+
+  if (oldNode.nodeType === Node.ELEMENT_NODE) {
+    const oldEl = oldNode as HTMLElement;
+    const oldVNode = (oldEl as any).__vnode as VNode | undefined;
+
+    if (isVNode(newVNode)) {
+      if (typeof newVNode.type === "function") {
+        const instanceId = (oldEl as any).__instanceId;
+        if (instanceId) {
+          const tracked = findTracked(instanceId);
+          if (tracked) {
+            tracked.props = newVNode.props ?? {};
+            setCurrentInstance(instanceId);
+            const rendered = tracked.componentFn(tracked.props || {});
+            clearCurrentInstance();
+            patchElement(oldNode, rendered, parent);
+            return;
+          }
+        }
+      }
+
+      if (
+        typeof newVNode.type === "string" &&
+        oldEl.tagName.toLowerCase() === newVNode.type
+      ) {
+        patchProps(oldEl, oldVNode?.props, newVNode.props);
+        patchChildren(
+          oldEl,
+          oldVNode?.props?.children,
+          newVNode.props?.children
+        );
+        (oldEl as any).__vnode = newVNode;
+        return;
+      }
+    }
+
+    const newNode = createDomElement(newVNode);
+    parent.replaceChild(newNode, oldNode);
+    trackNewInstances(newNode, parent);
+  } else {
+    const newNode = createDomElement(newVNode);
+    parent.replaceChild(newNode, oldNode);
+    trackNewInstances(newNode, parent);
+  }
+}
+
+function patchProps(
+  el: HTMLElement,
+  oldProps: Record<string, any> | undefined,
+  newProps: Record<string, any> | undefined
+) {
+  const old = oldProps ?? {};
+  const next = newProps ?? {};
+  const allKeys = new Set([...Object.keys(old), ...Object.keys(next)]);
+
+  for (const key of allKeys) {
+    if (key === "children" || key === "ref" || key === "key") continue;
+
+    const oldVal = old[key];
+    const newVal = next[key];
+
+    if (oldVal === newVal) continue;
+
+    if (key.startsWith("on") && typeof newVal === "function") {
+      const event = key.slice(2).toLowerCase();
+      if (typeof oldVal === "function") {
+        el.removeEventListener(event, oldVal);
+      }
+      el.addEventListener(event, newVal);
+    } else if (key === "class" || key === "className") {
+      if (newVal != null) {
+        el.setAttribute("class", String(newVal));
+      } else {
+        el.removeAttribute("class");
+      }
+    } else if (key === "style" && typeof newVal === "object") {
+      if (oldVal && typeof oldVal === "object") {
+        Object.keys(oldVal).forEach((k) => {
+          if (!(k in newVal)) {
+            (el.style as any)[k] = "";
+          }
+        });
+      }
+      Object.assign(el.style, newVal);
+    } else if (key === "dangerouslySetInnerHTML") {
+      if (newVal && newVal.__html) {
+        el.innerHTML = newVal.__html;
+      } else {
+        el.innerHTML = "";
+      }
+    } else if (newVal != null && newVal !== false) {
+      el.setAttribute(key, String(newVal));
+    } else {
+      el.removeAttribute(key);
+    }
+  }
+}
+
+function patchChildren(
+  parent: HTMLElement,
+  oldChildren: any,
+  newChildren: any
+) {
+  const oldNodes = Array.from(parent.childNodes);
+  const oldKeys = new Map<string | number, Node>();
+  const newVNodes: Child[] = Array.isArray(newChildren)
+    ? newChildren
+    : newChildren != null
+    ? [newChildren]
+    : [];
+
+  oldNodes.forEach((node, idx) => {
+    const vnode = (node as any).__vnode as VNode | undefined;
+    const key = vnode?.key ?? idx;
+    oldKeys.set(key, node);
+  });
+
+  const newKeys = new Map<string | number, Child>();
+  newVNodes.forEach((vnode, idx) => {
+    const key = isVNode(vnode) ? vnode.key ?? idx : idx;
+    newKeys.set(key, vnode);
+  });
+
+  let oldIdx = 0;
+  let newIdx = 0;
+
+  while (newIdx < newVNodes.length) {
+    const newVNode = newVNodes[newIdx];
+    const newKey = isVNode(newVNode) ? newVNode.key ?? newIdx : newIdx;
+    const oldNode = oldKeys.get(newKey);
+
+    if (oldNode && oldIdx < oldNodes.length && oldNode === oldNodes[oldIdx]) {
+      patchElement(oldNode, newVNode, parent);
+      oldIdx++;
+    } else if (oldNode) {
+      const nextOld = oldIdx < oldNodes.length ? oldNodes[oldIdx] : null;
+      if (nextOld) {
+        parent.insertBefore(oldNode, nextOld);
+      } else {
+        parent.appendChild(oldNode);
+      }
+      patchElement(oldNode, newVNode, parent);
+    } else {
+      const newNode = createDomElement(newVNode);
+      const nextOld = oldIdx < oldNodes.length ? oldNodes[oldIdx] : null;
+      if (nextOld) {
+        parent.insertBefore(newNode, nextOld);
+      } else {
+        parent.appendChild(newNode);
+      }
+      trackNewInstances(newNode, parent);
+    }
+    newIdx++;
+  }
+
+  while (oldIdx < oldNodes.length) {
+    const oldNode = oldNodes[oldIdx];
+    if (!newKeys.has((oldNode as any).__vnode?.key ?? oldIdx)) {
+      parent.removeChild(oldNode);
+    }
+    oldIdx++;
+  }
+}
+
+function trackNewInstances(node: Node, parent: Node) {
+  if ((node as any).__instanceId) {
+    const id: symbol = (node as any).__instanceId;
+    if (!trackedInstances.some((t) => t.id === id)) {
+      const compFn: Function = (node as any).__componentFn;
+      const props = (node as any).__props;
+      trackedInstances.push({
+        id,
+        parent,
+        anchor: null,
+        rootNode: node,
+        componentFn: compFn,
+        props,
+      });
+      try {
+        runMounted(id);
+      } catch {}
+    }
+  }
+
+  if (
+    node.nodeType === Node.ELEMENT_NODE ||
+    node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+  ) {
+    Array.from(node.childNodes).forEach((child) => {
+      trackNewInstances(child, node);
+    });
+  }
 }
 
 function renderChildren(children: any, parent: Node) {
@@ -188,45 +408,11 @@ function renderChildren(children: any, parent: Node) {
     children.forEach((child) => {
       const childNode = createDomElement(child);
       parent.appendChild(childNode);
-      if ((childNode as any).__instanceId) {
-        const id: symbol = (childNode as any).__instanceId;
-        if (!trackedInstances.some((t) => t.id === id)) {
-          const compFn: Function = (childNode as any).__componentFn;
-          const props = (childNode as any).__props;
-          trackedInstances.push({
-            id,
-            parent,
-            anchor: null,
-            rootNode: childNode,
-            componentFn: compFn,
-            props,
-          });
-          try {
-            runMounted(id);
-          } catch {}
-        }
-      }
+      trackNewInstances(childNode, parent);
     });
   } else if (children != null && children !== false && children !== true) {
     const childNode = createDomElement(children);
     parent.appendChild(childNode);
-    if ((childNode as any).__instanceId) {
-      const id: symbol = (childNode as any).__instanceId;
-      if (!trackedInstances.some((t) => t.id === id)) {
-        const compFn: Function = (childNode as any).__componentFn;
-        const props = (childNode as any).__props;
-        trackedInstances.push({
-          id,
-          parent,
-          anchor: null,
-          rootNode: childNode,
-          componentFn: compFn,
-          props,
-        });
-        try {
-          runMounted(id);
-        } catch {}
-      }
-    }
+    trackNewInstances(childNode, parent);
   }
 }

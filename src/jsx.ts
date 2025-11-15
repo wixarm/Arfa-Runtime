@@ -35,11 +35,11 @@ export function h(
 
   const vnode: VNode = { type, props: normalizedProps };
 
-  if (key !== null) {
+  if (key !== null && key !== undefined) {
     vnode.key = key;
   }
 
-  if (ref !== null) {
+  if (ref !== null && ref !== undefined) {
     vnode.ref = ref;
   }
 
